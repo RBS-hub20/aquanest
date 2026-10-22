@@ -18,3 +18,4 @@ marketing/showreel/out
 dist
 .vercel
 .env*.local
+.env*
