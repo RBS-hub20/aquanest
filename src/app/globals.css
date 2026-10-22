@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 214 81% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 214 81% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 214 81% 20%;
+    --primary: 206 88% 38%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 208 100% 97%;
+    --secondary-foreground: 214 81% 20%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 22% 45%;
+    --accent: 193 100% 95%;
+    --accent-foreground: 206 88% 38%;
+    --destructive: 350 75% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 210 40% 92%;
+    --input: 210 40% 90%;
+    --ring: 206 88% 38%;
+    --radius: 1rem;
+  }
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-white text-navy antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, h4 {
+    @apply font-extrabold tracking-tight text-navy;
+  }
+  ::selection {
+    @apply bg-aqua/20;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply border border-white/60 bg-white/70 backdrop-blur-xl;
+  }
+  .card-premium {
+    @apply rounded-[22px] border border-slate-100 bg-white shadow-soft;
+  }
+  .card-mist {
+    @apply rounded-[22px] border border-sky-100/70 bg-mist;
+  }
+  .icon-bubble {
+    @apply grid place-items-center rounded-2xl bg-gradient-to-br from-ocean-50 to-aqua-50 text-ocean ring-1 ring-sky-100;
+  }
+  .text-gradient {
+    @apply bg-gradient-to-r from-ocean to-aqua bg-clip-text text-transparent;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .bg-dots {
+    background-image: radial-gradient(rgb(12 109 181 / 0.08) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+}
+
+/* Leaflet fallback map */
+.leaflet-container {
+  font-family: inherit;
+  border-radius: 1rem;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

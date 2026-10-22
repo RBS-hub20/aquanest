@@ -1,0 +1,436 @@
+// AquaNest™ — Water Refilling Station & Delivery
+// Database: Supabase Postgres (or the bundled docker-compose Postgres for offline dev)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  RIDER
+}
+
+enum WaterType {
+  PURIFIED
+  MINERAL
+  ALKALINE
+}
+
+/// Physical container family — drives gallon tracking & deposits.
+enum ContainerType {
+  ROUND_19L
+  SLIM_19L
+  GALLON_10L
+  GALLON_6L
+  BOTTLED_CASE
+}
+
+enum OrderType {
+  REFILL
+  NEW_GALLON
+  BORROW
+  RETURN
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderChannel {
+  ONLINE
+  POS
+  SUBSCRIPTION
+}
+
+enum PaymentMethod {
+  COD
+  GCASH
+  MAYA
+  CASH
+}
+
+enum PaymentStatus {
+  UNPAID
+  FOR_VERIFICATION
+  PAID
+  REFUNDED
+}
+
+enum GallonStatus {
+  FILLED
+  EMPTY
+  AT_CUSTOMER
+  FOR_CLEANING
+  DAMAGED
+}
+
+enum PromoType {
+  PERCENT
+  FIXED
+}
+
+enum LoyaltyType {
+  EARN
+  REDEEM
+  REFERRAL
+  ADJUST
+}
+
+enum ExpenseCategory {
+  SEAL
+  WATER
+  ELECTRICITY
+  FUEL
+  SALARY
+  MAINTENANCE
+  RENT
+  SUPPLIES
+  OTHER
+}
+
+model User {
+  id               String        @id @default(cuid())
+  supabaseId       String?       @unique
+  phone            String        @unique
+  name             String
+  email            String?
+  role             Role          @default(CUSTOMER)
+  avatarUrl        String?
+  language         String        @default("en")
+  referralCode     String        @unique
+  referredById     String?
+  referredBy       User?         @relation("Referrals", fields: [referredById], references: [id])
+  referrals        User[]        @relation("Referrals")
+  tags             String[]      @default([])
+  /// Unpaid balance (utang) in PHP
+  balance          Float         @default(0)
+  /// Gallon deposits held by the station on behalf of this customer, PHP
+  depositBalance   Float         @default(0)
+  preferredPayment PaymentMethod @default(COD)
+  remindersEnabled Boolean       @default(true)
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  addresses     Address[]
+  orders        Order[]          @relation("CustomerOrders")
+  rider         Rider?
+  loyalty       LoyaltyPoint[]
+  gallons       CustomerGallon[]
+  notifications Notification[]
+  subscriptions Subscription[]
+  expenses      Expense[]
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String   @default("Home")
+  line1      String
+  barangay   String?
+  city       String
+  province   String?
+  landmark   String?
+  lat        Float
+  lng        Float
+  distanceKm Float    @default(0)
+  isPrimary  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  orders        Order[]
+  subscriptions Subscription[]
+
+  @@index([userId])
+}
+
+model Product {
+  id             String        @id @default(cuid())
+  name           String
+  nameTl         String?
+  container      ContainerType
+  sizeLabel      String
+  liters         Float
+  waterType      WaterType     @default(PURIFIED)
+  /// Water/refill price
+  price          Float
+  /// Price of a brand-new container (for NEW_GALLON orders)
+  containerPrice Float         @default(0)
+  /// Refundable deposit per borrowed container
+  depositPrice   Float         @default(150)
+  /// Bottled cases are sold, not refilled
+  isReturnable   Boolean       @default(true)
+  isPopular      Boolean       @default(false)
+  isActive       Boolean       @default(true)
+  imageUrl       String?
+  sortOrder      Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  orderItems OrderItem[]
+
+  @@unique([container, waterType])
+}
+
+model Order {
+  id               String         @id @default(cuid())
+  code             String         @unique
+  customerId       String?
+  customer         User?          @relation("CustomerOrders", fields: [customerId], references: [id])
+  /// Walk-in name for POS orders without an account
+  walkInName       String?
+  addressId        String?
+  address          Address?       @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  addressText      String?
+  lat              Float?
+  lng              Float?
+  distanceKm       Float          @default(0)
+  channel          OrderChannel   @default(ONLINE)
+  status           OrderStatus    @default(PENDING)
+  paymentMethod    PaymentMethod  @default(COD)
+  paymentStatus    PaymentStatus  @default(UNPAID)
+  paymentProofUrl  String?
+  subtotal         Float          @default(0)
+  depositTotal     Float          @default(0)
+  deliveryFee      Float          @default(0)
+  discount         Float          @default(0)
+  total            Float          @default(0)
+  promoCodeId      String?
+  promoCode        PromoCode?     @relation(fields: [promoCodeId], references: [id])
+  freeRefillsUsed  Int            @default(0)
+  notes            String?
+  isAsap           Boolean        @default(true)
+  scheduledDate    DateTime?
+  timeSlot         String?
+  riderId          String?
+  rider            Rider?         @relation(fields: [riderId], references: [id])
+  deliveryPhotoUrl String?
+  collectedAmount  Float          @default(0)
+  collectedVia     PaymentMethod?
+  subscriptionId   String?
+  subscription     Subscription?  @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  preparingAt      DateTime?
+  outForDeliveryAt DateTime?
+  deliveredAt      DateTime?
+  cancelledAt      DateTime?
+  cancelReason     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  items   OrderItem[]
+  loyalty LoyaltyPoint[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([riderId])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id             String    @id @default(cuid())
+  orderId        String
+  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id])
+  productName    String
+  orderType      OrderType @default(REFILL)
+  quantity       Int
+  unitPrice      Float
+  containerPrice Float     @default(0)
+  deposit        Float     @default(0)
+  /// Station containers lent with this line (refill shortfall or BORROW)
+  borrowQty      Int       @default(0)
+  lineTotal      Float
+}
+
+model Rider {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  area        String   @default("Main")
+  vehicle     String   @default("Motorcycle")
+  plateNumber String?
+  photoUrl    String?
+  isActive    Boolean  @default(true)
+  isOnline    Boolean  @default(false)
+  lat         Float?
+  lng         Float?
+  lastSeenAt  DateTime?
+  rating      Float    @default(5)
+  createdAt   DateTime @default(now())
+
+  orders Order[]
+}
+
+model Inventory {
+  id                String        @id @default(cuid())
+  name              String
+  /// GALLON rows carry the status breakdown, SUPPLY rows use `quantity`
+  category          String        @default("GALLON")
+  container         ContainerType?
+  filled            Int           @default(0)
+  empty             Int           @default(0)
+  atCustomer        Int           @default(0)
+  forCleaning       Int           @default(0)
+  damaged           Int           @default(0)
+  quantity          Int           @default(0)
+  unit              String        @default("pcs")
+  lowStockThreshold Int           @default(10)
+  updatedAt         DateTime      @updatedAt
+  createdAt         DateTime      @default(now())
+}
+
+/// Optional per-container QR tracking
+model Gallon {
+  id         String        @id @default(cuid())
+  serial     String        @unique
+  container  ContainerType
+  status     GallonStatus  @default(FILLED)
+  customerId String?
+  notes      String?
+  updatedAt  DateTime      @updatedAt
+  createdAt  DateTime      @default(now())
+}
+
+/// How many containers a customer currently holds, per type
+model CustomerGallon {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  container ContainerType
+  owned     Int           @default(0)
+  borrowed  Int           @default(0)
+
+  @@unique([userId, container])
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  category    ExpenseCategory @default(OTHER)
+  description String
+  amount      Float
+  date        DateTime        @default(now())
+  createdById String?
+  createdBy   User?           @relation(fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+
+  @@index([date])
+}
+
+model PromoCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  description String?
+  type        PromoType @default(PERCENT)
+  value       Float
+  minOrder    Float     @default(0)
+  maxUses     Int?
+  usedCount   Int       @default(0)
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  orders Order[]
+}
+
+model LoyaltyPoint {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId   String?
+  order     Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  points    Int
+  type      LoyaltyType @default(EARN)
+  note      String?
+  createdAt DateTime    @default(now())
+
+  @@index([userId])
+}
+
+model Subscription {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addressId     String?
+  address       Address?      @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  /// 0 = Sunday … 6 = Saturday
+  days          Int[]
+  /// [{ productId, quantity }]
+  items         Json
+  timeSlot      String        @default("08:00-10:00")
+  paymentMethod PaymentMethod @default(COD)
+  isActive      Boolean       @default(true)
+  lastRunDate   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  orders Order[]
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model SmsLog {
+  id        String   @id @default(cuid())
+  to        String
+  name      String?
+  message   String
+  status    String   @default("MOCK_SENT")
+  campaign  String?
+  createdAt DateTime @default(now())
+}
+
+model StoreSettings {
+  id                    Int      @id @default(1)
+  storeName             String   @default("AquaNest Water Refilling Station & Delivery")
+  tagline               String   @default("Pure Water. Happy Home.")
+  logoUrl               String?
+  phone                 String   @default("0917 123 4567")
+  email                 String   @default("hello@aquanest.ph")
+  website               String   @default("www.aquanest.ph")
+  address               String   @default("123 Rizal Ave., Brgy. San Antonio, Pasig City")
+  lat                   Float    @default(14.5764)
+  lng                   Float    @default(121.0851)
+  gcashName             String   @default("AquaNest Refilling")
+  gcashNumber           String   @default("0917 123 4567")
+  gcashQrUrl            String?
+  mayaName              String   @default("AquaNest Refilling")
+  mayaNumber            String   @default("0917 123 4567")
+  mayaQrUrl             String?
+  openTime              String   @default("07:00")
+  closeTime             String   @default("19:00")
+  operatingDays         Int[]    @default([0, 1, 2, 3, 4, 5, 6])
+  autoClose             Boolean  @default(true)
+  manualClosed          Boolean  @default(false)
+  baseDeliveryFee       Float    @default(0)
+  deliveryFeePerKm      Float    @default(10)
+  freeDeliveryRadiusKm  Float    @default(1)
+  freeDeliveryThreshold Float    @default(300)
+  maxDeliveryKm         Float    @default(15)
+  gallonDepositFee      Float    @default(150)
+  loyaltyRefillsForFree Int      @default(10)
+  referralRewardPoints  Int      @default(2)
+  timeSlots             String[] @default(["07:00-09:00", "09:00-11:00", "11:00-13:00", "13:00-15:00", "15:00-17:00", "17:00-19:00"])
+  updatedAt             DateTime @updatedAt
+}

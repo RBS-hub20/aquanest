@@ -1,0 +1,25 @@
+{
+  "fps": 30,
+  "duration": 30,
+  "bpm": 110,
+  "voOffset": 0.6,
+  "cuts": { "hook": 0, "problem": 2.727, "solution": 6.0, "customer": 10.364, "rider": 14.182, "admin": 16.364, "benefits": 19.091, "cta": 22.909, "end": 30 },
+  "events": {
+    "hookWords": [0.62, 0.95, 1.3, 1.62, 1.95],
+    "problemChips": [3.1, 3.6, 4.15],
+    "crossOut": [5.05, 5.2, 5.35],
+    "upgradeCard": 7.25,
+    "featureChips": [8.15, 8.85, 9.55],
+    "customerCards": [11.4, 12.3, 13.2],
+    "riderCards": [14.9, 15.55],
+    "adminCountEnd": 17.55,
+    "adminCards": [16.9, 18.2],
+    "benefitPops": [19.35, 19.92, 20.49, 21.06, 21.63],
+    "logoDrop": 22.909,
+    "tagline": 23.9,
+    "subTagline": 25.2,
+    "button": 26.35,
+    "buttonClick": 27.0,
+    "contacts": 27.35
+  }
+}

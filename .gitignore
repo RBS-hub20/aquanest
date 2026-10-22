@@ -1,0 +1,20 @@
+node_modules
+.next
+out
+.env
+.env.local
+uploads/*
+!uploads/.gitkeep
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+._*
+
+# showreel build output & deps
+marketing/showreel/node_modules
+marketing/showreel/out
+
+# build output / deploy
+dist
+.vercel
+.env*.local

@@ -1,0 +1,17 @@
+# Optional local Postgres for offline development.
+# Production / staging should point DATABASE_URL at your Supabase project.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: aquanest-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aquanest
+      POSTGRES_PASSWORD: aquanest
+      POSTGRES_DB: aquanest
+    ports:
+      - "54329:5432"
+    volumes:
+      - aquanest-db:/var/lib/postgresql/data
+volumes:
+  aquanest-db:
