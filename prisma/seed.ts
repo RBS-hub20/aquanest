@@ -22,9 +22,24 @@ const pick = <T,>(arr: T[]) => arr[Math.floor(rand() * arr.length)]!;
 const code = (d: Date, i: number) =>
   `AQ-${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${(i * 7919).toString(36).toUpperCase().padStart(4, "0").slice(-4)}`;
 
+/** Promote the owner's real mobile number (ADMIN_PHONE) to admin so they can log in with OTP. */
+async function ensureOwnerAdmin() {
+  const raw = (process.env.ADMIN_PHONE || "").replace(/\D/g, "");
+  if (!raw) return;
+  const phone = raw.startsWith("63") ? `+${raw}` : raw.startsWith("0") ? `+63${raw.slice(1)}` : `+63${raw}`;
+  if (!/^\+639\d{9}$/.test(phone)) return console.warn("   ADMIN_PHONE is not a valid PH mobile number — skipped.");
+  await prisma.user.upsert({
+    where: { phone },
+    update: { role: "ADMIN", isActive: true },
+    create: { phone, name: process.env.ADMIN_NAME || "Station Owner", role: "ADMIN", referralCode: `OWNER${raw.slice(-4)}` },
+  });
+  console.log(`   Owner admin ensured for ${phone}.`);
+}
+
 async function main() {
   if (ifEmpty && (await prisma.user.count()) > 0) {
     console.log("   Database already has data — skipping seed.");
+    await ensureOwnerAdmin();
     return;
   }
   console.log("🌱 Seeding AquaNest…");
@@ -285,6 +300,7 @@ async function main() {
     ],
   });
 
+  await ensureOwnerAdmin();
   console.log(`✅ Seeded ${products.length} products, ${customers.length} customers, ${riders.length} riders, ${n - 1} orders.`);
   console.log("   Demo logins (OTP 123456): Admin 0917 000 0001 · Rider 0917 111 0001 · Customer 0917 123 4501");
 }
